@@ -1,0 +1,228 @@
+{
+  "created_by": "trader-scanner",
+  "created_at": "2026-11-03T11:38:34Z",
+  "mode": "daily",
+  "as_of": "2026-11-03 close",
+  "universe": 50,
+  "scanned": 41,
+  "failed": 0,
+  "source": "yahoo",
+  "filters": {
+    "min_price": 5.0,
+    "min_volume": 1000000
+  },
+  "note": "A scan is a list of charts that match a rule, not a list of stocks to buy.",
+  "hits": [
+    {
+      "symbol": "RELIANCE.NS",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 1307.9,
+      "close_date": "2026-11-03",
+      "rsi": 66.6,
+      "volume": 42318217
+    },
+    {
+      "symbol": "BHARTIARTL.NS",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 2065.0,
+      "close_date": "2026-11-03",
+      "rsi": 73.5,
+      "volume": 18602031
+    },
+    {
+      "symbol": "HDFCBANK.NS",
+      "setups": [
+        "reclaim_ma20"
+      ],
+      "price": 725.5,
+      "close_date": "2026-11-03",
+      "rsi": 58.4,
+      "volume": 42738372
+    },
+    {
+      "symbol": "ICICIBANK.NS",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 1424.5,
+      "close_date": "2026-11-03",
+      "rsi": 61.8,
+      "volume": 17496481
+    },
+    {
+      "symbol": "BSE.NS",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 3665.7,
+      "close_date": "2026-11-03",
+      "rsi": 67.7,
+      "volume": 6061702
+    },
+    {
+      "symbol": "TCS.NS",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 2499.1,
+      "close_date": "2026-11-03",
+      "rsi": 66.1,
+      "volume": 3485800
+    },
+    {
+      "symbol": "ITC.NS",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 273.9,
+      "close_date": "2026-11-03",
+      "rsi": 61.3,
+      "volume": 31520030
+    },
+    {
+      "symbol": "KOTAKBANK.NS",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 464.65,
+      "close_date": "2026-11-03",
+      "rsi": 68.9,
+      "volume": 18520882
+    },
+    {
+      "symbol": "LT.NS",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 3948.2,
+      "close_date": "2026-11-03",
+      "rsi": 66.4,
+      "volume": 2152853
+    },
+    {
+      "symbol": "ETERNAL.NS",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 349.45,
+      "close_date": "2026-11-03",
+      "rsi": 65.0,
+      "volume": 20634889
+    },
+    {
+      "symbol": "ASIANPAINT.NS",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 2437.8,
+      "close_date": "2026-11-03",
+      "rsi": 59.3,
+      "volume": 2008937
+    },
+    {
+      "symbol": "JSWSTEEL.NS",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 1320.0,
+      "close_date": "2026-11-03",
+      "rsi": 63.4,
+      "volume": 2616228
+    },
+    {
+      "symbol": "HINDUNILVR.NS",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 1962.8,
+      "close_date": "2026-11-03",
+      "rsi": 63.8,
+      "volume": 1722676
+    },
+    {
+      "symbol": "HCLTECH.NS",
+      "setups": [
+        "breakout_20d",
+        "bull_flag"
+      ],
+      "price": 1439.1,
+      "close_date": "2026-11-03",
+      "rsi": 71.0,
+      "volume": 2343498
+    },
+    {
+      "symbol": "TECHM.NS",
+      "setups": [
+        "bull_flag"
+      ],
+      "price": 1789.1,
+      "close_date": "2026-11-03",
+      "rsi": 65.2,
+      "volume": 1646217
+    },
+    {
+      "symbol": "TATACONSUM.NS",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 1073.0,
+      "close_date": "2026-11-03",
+      "rsi": 69.7,
+      "volume": 2688508
+    },
+    {
+      "symbol": "DRREDDY.NS",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 1368.3,
+      "close_date": "2026-11-03",
+      "rsi": 75.3,
+      "volume": 1954684
+    },
+    {
+      "symbol": "SBILIFE.NS",
+      "setups": [
+        "reclaim_ma20"
+      ],
+      "price": 1683.0,
+      "close_date": "2026-11-03",
+      "rsi": 50.2,
+      "volume": 1471854
+    },
+    {
+      "symbol": "CIPLA.NS",
+      "setups": [
+        "breakout_20d"
+      ],
+      "price": 1396.9,
+      "close_date": "2026-11-03",
+      "rsi": 63.5,
+      "volume": 1723151
+    },
+    {
+      "symbol": "BAJAJFINSV.NS",
+      "setups": [
+        "reclaim_ma20"
+      ],
+      "price": 1718.1,
+      "close_date": "2026-11-03",
+      "rsi": 46.8,
+      "volume": 1263681
+    },
+    {
+      "symbol": "TMPV.NS",
+      "setups": [
+        "reclaim_ma20"
+      ],
+      "price": 276.7,
+      "close_date": "2026-11-03",
+      "rsi": 46.1,
+      "volume": 6459706
+    }
+  ]
+}

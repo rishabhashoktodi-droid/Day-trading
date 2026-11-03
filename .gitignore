@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+trader/universe.txt
+trader/nse/
+trader/state/
+trader/entry.json
+trader/plan.json
+trader/orders.json
+trader/prices.json
+trader/alerts.json
+trader/timemachine.json
+trader/portfolio.json
