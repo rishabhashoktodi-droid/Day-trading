@@ -53,7 +53,7 @@ Then ask Claude, for example: "scan NSE for setups", "news on ANGELONE.NS", "how
 | `max_trades_per_day` | 2 | placeholder: confirm |
 | `cash_buffer_pct` | 5 | cash never used |
 | `no_entries_before` / `no_entries_after` / `flat_by` | 09:30 / 15:15 / 15:15 | IST |
-| `broker` | `manual` | tickets you enter yourself |
+| `broker` | `zerodha` | Kite tickets you enter yourself (`manual` = any broker) |
 | `paper` | `true` | paper trading |
 
 ## Data sources and limits

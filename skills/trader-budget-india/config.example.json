@@ -14,7 +14,7 @@
   "no_entries_after": "15:15",
   "flat_by": "15:15",
   "fractional": false,
-  "broker": "manual",
+  "broker": "zerodha",
   "paper": true,
   "blocked": [],
   "allow_options": false,

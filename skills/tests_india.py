@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Offline checks for the India (NSE) editions of the trader-* skills.
 
-    python3 ~/.claude/skills/tests_india.py -v
+    python3 /home/user/.claude/skills/tests_india.py -v
 """
 import datetime as dt
 import importlib.util
@@ -95,6 +95,24 @@ class Rupees(unittest.TestCase):
         self.assertIn("SL-M, trigger 295.55", steps)
         self.assertIn("LIMIT 307.25", steps)
         self.assertIn("PAPER", steps)
+
+
+class Zerodha(unittest.TestCase):
+    def test_costs_round_trip(self):
+        # 6 CDSL at 1290.80 out at 1274.30: brokerage 0.03% (under Rs 20) each side, STT, exchange, SEBI, stamp, GST
+        c = BROKER.zerodha_costs(6, 1290.80, 1274.30)
+        self.assertTrue(7.5 < c < 9.0, c)
+        self.assertLessEqual(BROKER.zerodha_costs(1000, 1000.0, 1000.0) - BROKER.zerodha_costs(999, 1000.0, 1000.0), 3)
+
+    def test_kite_ticket(self):
+        order = {"symbol": "CDSL.NS", "side": "buy", "qty": "6", "type": "market", "order_class": "bracket",
+                 "stop_loss_stop_price": "1274.30", "take_profit_limit_price": "1323.80", "plan": {"entry_plan": 1290.80}}
+        t = "\n".join(BROKER.manual_steps(order, True, "zerodha"))
+        self.assertIn("Intraday (MIS)", t)
+        self.assertIn("SL-M, trigger 1274.30", t)
+        self.assertIn("price 1273.80", t)      # SL fallback: 5 ticks of 0.10 under the trigger
+        self.assertIn("Limit, price 1323.80", t)
+        self.assertIn("3:25 PM", t)
 
 
 class Ticks(unittest.TestCase):

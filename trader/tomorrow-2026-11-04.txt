@@ -1,0 +1,8 @@
+# Watchlist for Wed 4 Nov 2026 (NSE). Opening-range breakout: range 9:15-9:30, first signal 9:35, flat by 3:15.
+# Picked by the numbers below; the choice and the trade are yours. Paper first.
+CDSL.NS        # best 60-day ORB history (+0.17R at 1R, +0.45R at 2R, 29 trades); analyst call 6 Nov; Rs 1,320, 7 shares max
+ANGELONE.NS    # liquid, Rs 310 (fine sizing, ~25-32 shares); history about break-even (+0.06R at 1R, 36 trades)
+WELSPUNLIV.NS  # Q2 call transcript filed tonight; history about break-even (+0.05R at 1R, 34 trades); wide range (~3.4%)
+TECHNOCRAF.NS  # +13% today on 6x volume; history positive but only 9 trades in 19 sessions: thin evidence
+# Left out: MOTILALOFS (leadership change filed after the close: event risk at the open),
+# MARICO / AFFLE / TEMPSENS / 360ONE (negative 60-day history), ITI (NSE volume queries, wide range)

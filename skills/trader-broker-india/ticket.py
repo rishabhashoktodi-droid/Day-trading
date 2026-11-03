@@ -338,7 +338,8 @@ def render(order, idx, total, cfg, risk, state, today):
     broker = str(cfg.get("broker", "manual")).lower()
     paper = cfg.get("paper", True)
     acct = "PAPER account" if paper else "LIVE ACCOUNT, REAL MONEY"
-    name = {"ibkr": "Interactive Brokers", "alpaca": "Alpaca"}.get(broker, "your broker, entered by you")
+    name = {"ibkr": "Interactive Brokers", "alpaca": "Alpaca",
+            "zerodha": "Zerodha Kite, entered by you"}.get(broker, "your broker, entered by you")
     lines = ["ORDER %d of %d, %s, %s" % (idx, total, acct, name)]
     for part in plain_parts(order):
         lines.append("  " + part)
@@ -348,7 +349,7 @@ def render(order, idx, total, cfg, risk, state, today):
     for w in (rv or {}).get("warnings", []):
         lines.append("  note: " + w)
     if broker not in ("ibkr", "alpaca"):
-        lines.extend("  " + l for l in manual_steps(order, paper))
+        lines.extend("  " + l for l in manual_steps(order, paper, broker))
     elif broker == "ibkr":
         lines.append("  Claude drafts this with the Interactive Brokers connector. IBKR sends it to your")
         lines.append("  IBKR account, and it only goes to the market after you approve it there.")
@@ -368,8 +369,25 @@ def render(order, idx, total, cfg, risk, state, today):
     return "\n".join(lines), ready
 
 
-def manual_steps(order, paper):
+def zerodha_costs(qty, buy_px, sell_px):
+    """Approximate Zerodha equity intraday (MIS) charges for one round trip, in rupees.
+    Brokerage: 0.03% or Rs 20 per executed order, whichever is lower. STT 0.025% on the sell side.
+    NSE transaction charge 0.00297% both sides. SEBI Rs 10 per crore. Stamp duty 0.003% on the buy side.
+    GST 18% on brokerage + transaction + SEBI. The contract note is the truth."""
+    b, sv = qty * buy_px, qty * sell_px
+    brokerage = min(20.0, 0.0003 * b) + min(20.0, 0.0003 * sv)
+    stt = 0.00025 * sv
+    txn = 0.0000297 * (b + sv)
+    sebi = 0.000001 * (b + sv)
+    stamp = 0.00003 * b
+    gst = 0.18 * (brokerage + txn + sebi)
+    return round(brokerage + stt + txn + sebi + stamp + gst, 2)
+
+
+def manual_steps(order, paper, broker="manual"):
     """What to enter in an Indian broker's app (Zerodha, Upstox, Groww, Angel One...). Claude places nothing."""
+    if broker == "zerodha":
+        return kite_steps(order, paper)
     sym = str(order.get("symbol", ""))
     nse = sym[:-3] if sym.upper().endswith(".NS") else sym
     qty = order.get("qty") or "?"
@@ -386,6 +404,42 @@ def manual_steps(order, paper):
                 "     These two are NOT linked unless your broker offers an OCO/bracket order: when one fills,",
                 "     cancel the other at once, or you will be short. Out by the flat-by time either way.",
                 "  Prices are on the NSE tick (trader-exit rounds them); a price off the tick is rejected."]
+    return out
+
+
+def kite_steps(order, paper):
+    """The same ticket in Zerodha Kite's words, with Zerodha's intraday costs."""
+    sym = str(order.get("symbol", ""))
+    nse = sym[:-3] if sym.upper().endswith(".NS") else sym
+    qty = order.get("qty") or "?"
+    typ = "Limit %s" % order["limit_price"] if order.get("limit_price") else "Market"
+    out = ["%s in Zerodha Kite (exchange NSE, symbol %s):" % (
+        "PAPER: do NOT place it, just write it down" if paper else "LIVE: place it yourself", nse),
+        "  1. Search %s, pick NSE, BUY. Product: Intraday (MIS). Type: %s. Qty: %s. Swipe to buy." % (nse, typ, qty)]
+    if is_bracket(order):
+        sl = order.get("stop_loss_stop_price"); tp = order.get("take_profit_limit_price")
+        try:
+            slf, tpf, q = float(sl), float(tp), int(float(qty))
+            tick = 0.01 if slf < 250 else 0.05 if slf < 1000 else 0.10 if slf < 5000 else 0.50 if slf < 10000 else 1.0
+            sl_limit = "%.2f" % (round((slf - 5 * tick) / tick) * tick)
+            pl = order.get("plan") or {}
+            entry = float(order.get("limit_price") or pl.get("entry_plan") or pl.get("entry") or slf)
+        except (TypeError, ValueError):
+            slf = tpf = q = None
+            sl_limit = "a few ticks under the trigger"
+        out += ["  2. Once it fills, open Positions > %s > Exit, or place a SELL, Intraday (MIS):" % nse,
+                "       stop-loss: type SL-M, trigger %s (if Kite offers only SL: trigger %s, price %s)" % (sl, sl, sl_limit),
+                "  3. And a second SELL, Intraday (MIS): type Limit, price %s (the target)" % tp,
+                "     Kite does not link these two for an intraday position (GTT OCO is for delivery/CNC).",
+                "     When one fills, cancel the other at once, or the second one sells shares you no longer have.",
+                "  Zerodha squares off open MIS positions itself from about 3:25 PM for Rs 50 + GST per order:",
+                "     your rule is out by 3:15 PM, so close it yourself before that."]
+        if q:
+            c_stop = zerodha_costs(q, entry, slf)
+            c_tgt = zerodha_costs(q, entry, tpf)
+            out.append("  Zerodha costs for the round trip: about \u20b9%.2f at the stop, \u20b9%.2f at the target "
+                       "(brokerage, STT, exchange, SEBI, stamp, GST)." % (c_stop, c_tgt))
+    out.append("  Prices are on the NSE tick (trader-exit rounds them); a price off the tick is rejected.")
     return out
 
 
