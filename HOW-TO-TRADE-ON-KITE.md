@@ -61,6 +61,13 @@ You type the orders into the Kite app yourself. Claude never places anything.
 6. Check everything once, then **swipe to buy**. (Paper trading: stop here and just note the time and price.)
 7. Bottom tabs → **Orders** → it should say **COMPLETE**. Note the price you got.
 
+**Kite's buy screen has its own "Stoploss" switch.** If it's ON, set **Trigger price** to the ticket's stop
+(e.g. 1274.30). Never leave the price Kite fills in by itself (today's price): that would sell you out almost
+at once. After the buy, check the Orders tab: a stop-loss sell for the same quantity should be waiting. If it's
+there, skip Step B. If you're unsure, switch the toggle OFF and do Step B by hand.
+Also switch **Market protection** ON. It stops a market order from filling at a crazy price in a fast move.
+Ignore the **"4.56x" margin**: that's borrowed buying power. Always buy only the ticket's quantity.
+
 **Step B: Stop-loss, immediately after the buy**
 1. Watchlist → **CDSL** → **SELL**.
 2. **NSE**, **Intraday**, Qty **6**.
