@@ -352,7 +352,8 @@ def _read(path, default):
 
 # ---------------------------------------------------------------- rules
 
-PRICE_TYPES = {"above", "below", "stop", "target", "pct_move", "opening_bell", "time"}
+PRICE_TYPES = {"above", "below", "stop", "target", "pct_move", "opening_bell", "time", "drawdown"}
+DRAWDOWN_FRAC = 0.5  # ring when the price has fallen this share of the way from entry to stop
 NO_QUOTE = {"opening_bell", "time"}
 
 
@@ -371,6 +372,10 @@ def validate(rule):
         raise AlertError("rule %s needs a symbol" % rule.get("id"))
     if t in ("above", "below", "stop", "target") and not isinstance(rule.get("price"), (int, float)):
         raise AlertError("rule %s needs a numeric price" % rule.get("id"))
+    if t == "drawdown":
+        e, st = rule.get("entry"), rule.get("stop")
+        if not isinstance(e, (int, float)) or not isinstance(st, (int, float)) or not st < e:
+            raise AlertError("rule %s (drawdown) needs numeric entry and stop with stop < entry" % rule.get("id"))
     if t == "pct_move" and not isinstance(rule.get("pct"), (int, float)):
         raise AlertError("rule %s needs a numeric pct" % rule.get("id"))
     if t == "time" and _hhmm(rule.get("at")) is None:
@@ -455,6 +460,19 @@ def evaluate(rules, quotes, status, state, now_utc):
                 rung[rid] = stamp
             elif not hit and rid in rung and r.get("rearm"):
                 del rung[rid]
+        elif typ == "drawdown":
+            e, st = float(r["entry"]), float(r["stop"])
+            frac = float(r.get("frac", DRAWDOWN_FRAC))
+            level = e - frac * (e - st)
+            if p <= level and rid not in rung:
+                where = ("already at or under the stop ₹%s" % _n(st)) if p <= st else \
+                        ("%.0f%% of the way from entry ₹%s to stop ₹%s" % (100.0 * (e - p) / (e - st), _n(e), _n(st)))
+                rings.append({"id": rid, "symbol": sym, "message": "Trade under pressure: approaching stop zone. %s "
+                              "%s ₹%.2f, %s (alert at ₹%.2f). Hold the plan: don't move the stop, don't add."
+                              % (sym, "is" if status["open"] else "last", p, where, level)})
+                rung[rid] = stamp
+            elif p > level and rid in rung and r.get("rearm"):
+                del rung[rid]
         elif typ == "pct_move":
             ref = r.get("ref") or q.get("prev_close") or q.get("open")
             if not ref:
@@ -476,7 +494,8 @@ def _n(x):
 
 
 def rules_from_plan(plan, cfg_flat_by=None):
-    """trader/plan.json -> a stop alert, a target alert and a flat-by-close time alert, for the plan's day."""
+    """trader/plan.json -> stop, target, a drawdown alert halfway from entry to stop, and a flat-by-close time
+    alert, for the plan's day."""
     if not isinstance(plan, dict) or not plan.get("symbol"):
         raise AlertError("the plan has no symbol (run trader-exit first)")
     sym = str(plan["symbol"]).upper()
@@ -488,6 +507,11 @@ def rules_from_plan(plan, cfg_flat_by=None):
         label = plan.get("%s_label" % key)
         out.append({"id": "%s-plan-%s" % (sym.lower(), key), "symbol": sym, "type": typ, "price": float(v),
                     "note": word + (": " + label if label else "")})
+    entry = plan.get("entry")
+    if isinstance(entry, (int, float)) and float(entry) > float(plan["stop"]):
+        out.append({"id": "%s-plan-drawdown" % sym.lower(), "symbol": sym, "type": "drawdown",
+                    "entry": float(entry), "stop": float(plan["stop"]), "frac": DRAWDOWN_FRAC,
+                    "note": "halfway from entry to stop"})
     flat = plan.get("flat_by") or cfg_flat_by or "15:15"
     if _hhmm(flat) is None:
         raise AlertError("the plan's flat_by %r is not a time like 15:15" % flat)
@@ -654,6 +678,10 @@ def cmd_add(a):
             rule = {"type": "stop", "price": a.stop}
         elif a.target is not None:
             rule = {"type": "target", "price": a.target}
+        elif a.drawdown is not None:
+            if a.entry is None or a.stop_price is None:
+                raise AlertError("--drawdown PCT needs --entry and --stop-price")
+            rule = {"type": "drawdown", "entry": a.entry, "stop": a.stop_price, "frac": a.drawdown / 100.0}
         elif a.pct is not None:
             rule = {"type": "pct_move", "pct": a.pct}
             if a.direction:
@@ -739,9 +767,13 @@ def main(argv=None):
     g.add_argument("--stop", type=float)
     g.add_argument("--target", type=float)
     g.add_argument("--pct", type=float)
+    g.add_argument("--drawdown", type=float, metavar="PCT",
+                   help="ring when price falls PCT%% of the way from --entry to --stop-price (50 = halfway)")
     g.add_argument("--opening-bell", action="store_true")
     g.add_argument("--at", metavar="HH:MM", help="a time alert, India time (IST)")
     g.add_argument("--from-plan", action="store_true", help="stop, target and flat-by-close from the plan")
+    p.add_argument("--entry", type=float, help="entry price, for --drawdown")
+    p.add_argument("--stop-price", type=float, help="stop price, for --drawdown")
     p.add_argument("--plan", default="trader/plan.json")
     p.add_argument("--config", default="trader/config.json", help="flat_by when the plan has none")
     p.add_argument("--label", help="what a time alert says, e.g. \"flat by close\"")

@@ -477,9 +477,13 @@ def evaluate(chart, now_utc, setup="orb", or_minutes=15, interval="5m", level=No
     res["level"] = r2(lvl)
 
     first_slot = n_or if setup == "orb" else 0
-    trig, thin = None, []
+    trig, thin, false_bo = None, [], []
     for b in bars:
         if b["slot"] < first_slot or b["end"] < before or b["end"] > cutoff:
+            continue
+        if b["h"] > lvl and b["c"] <= lvl:
+            # a wick above the level that CLOSED back inside: a false breakout, never an entry
+            false_bo.append({"bar_start": hm(b["et"]), "time": ampm(b["end"]), "high": r2(b["h"]), "close": r2(b["c"])})
             continue
         if b["c"] > lvl:
             vx = (b["v"] / avg_vol) if avg_vol else None
@@ -488,6 +492,7 @@ def evaluate(chart, now_utc, setup="orb", or_minutes=15, interval="5m", level=No
                 continue
             trig = b
             break
+    res["false_breakouts"] = false_bo
     last = bars[-1] if bars else None
     if last:
         res["last"] = {"bar_start": hm(last["et"]), "close": r2(last["c"]),
@@ -586,12 +591,18 @@ def describe(res):
             short(start), short(end), orr["high"], orr["low"], orr["bars"], orr["of"],
             "" if orr["complete"] else ", still forming"))
     label = PHASE_LABEL.get(res["phase"]) or LABEL.get(res["status"], res["status"].upper())
+    for f in res.get("false_breakouts") or []:
+        out.append("FALSE BREAKOUT %s bar: the wick reached ₹%.2f, above %s ₹%.2f, but it CLOSED at ₹%.2f, back inside. "
+                   "Not an entry." % (f["bar_start"], f["high"], "the range high" if res["setup"] == "orb" else "the level",
+                                      res["level"], f["close"]))
     t = res.get("trigger")
     if t:
         out.append("TRIGGERED %s at ₹%.2f: the %s bar (bar %d) closed above %s ₹%.2f (%+.2f%%%s)." % (
             t["time"], t["price"], short(datetime.datetime.strptime(t["bar_start"], "%H:%M")), t["bar_index"],
             "the range high" if res["setup"] == "orb" else "the level", res["level"], t["pct_over"],
             (", %.2fx the range's volume" % t["volume_x"]) if res.get("min_volume_x") and t.get("volume_x") else ""))
+        out.append("Confirmed on the CLOSE: the bar finished above the level. A wick above that closes back inside "
+                   "does not count.")
         step = INTERVALS[res["interval"]] // 60
         if res.get("minutes_since", 0) > step and res.get("last"):
             out.append("That was %d minutes ago; the last close is ₹%.2f (%s bar). A late entry is a different "

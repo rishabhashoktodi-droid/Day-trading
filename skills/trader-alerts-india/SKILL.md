@@ -3,6 +3,8 @@ name: trader-alerts-india
 description: 'Price Alerts, India (NSE) edition. Rings when an NSE price, stop or target is hit, at the opening bell (9:15 IST) and at the 3:15 PM flat-by. Knows NSE hours and the NSE holiday list, quotes in ₹ from free delayed Yahoo data, writes trader/prices.json. Use: "alert me when", "watch my stop", "is the market open", "get me a price" for .NS tickers.'
 ---
 
+> **Drawdown alert.** `add --from-plan` now also adds a `drawdown` rule: it rings once when the price falls 50% of the way from entry to stop, with "Trade under pressure: approaching stop zone". By hand: `alerts.py add --symbol X.NS --drawdown 50 --entry E --stop-price S`. It is a warning to hold the plan, not a signal to move the stop.
+
 > **India (NSE) edition: IST clock (UTC+5:30), session 9:15 AM to 3:30 PM, NSE holiday list (2026), every day trade flat by 3:15 PM, prices in rupees (₹), tickers kept as typed (RELIANCE.NS, M&M.NS).** The US text below still describes the method; read its New York / ET times as IST, 9:30 as 9:15, 3:55 or 4:00 PM as 3:15 PM, $ as ₹, NYSE as NSE.
 
 

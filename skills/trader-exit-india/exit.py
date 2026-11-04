@@ -3,7 +3,7 @@
 enter, so you know when to get out. Standard library only. Long side only.
 It never places an order.
 
-    python3 exit.py plan                                    # from trader/entry.json: or-mid stop, 2R target
+    python3 exit.py plan                                    # from trader/entry.json: or-low stop, 2R target
     python3 exit.py plan --stop or-mid --target 1R --write  # the reel: stop 358.32, target 370.04
     python3 exit.py plan --symbol TSLA --entry 364.18 --or-high 362.18 --or-low 354.47
     python3 exit.py plan --stop atr:1.5 --offline TSLA.json # ATR needs the session's bars
@@ -11,8 +11,8 @@ It never places an order.
     python3 exit.py show                                    # the current trader/plan.json
 
 Stops (a long's stop rounds DOWN to the cent, away from the entry):
-  or-mid     the opening-range midpoint (the default for an orb entry)
-  or-low     the opening-range low
+  or-low     the opening-range low (the default for an orb entry, India edition)
+  or-mid     the opening-range midpoint (tighter: more shares, stopped out more often)
   price:X    your price
   pct:X      X percent under the entry
   atr:K      K times the 14-bar ATR under the entry, on the session's bars up
@@ -568,6 +568,26 @@ def gather(a):
     return info
 
 
+def stop_tradeoff(plan):
+    """For an opening-range stop: the OR-low vs OR-midpoint trade-off, with both prices."""
+    orr = plan.get("opening_range") or {}
+    if plan.get("stop_rule") not in ("or_low", "or_mid") or orr.get("high") is None or orr.get("low") is None:
+        return []
+    e = D(plan["entry"])
+    tick = tick_size(e)
+    low = floor_tick(orr["low"], tick)
+    mid = floor_tick((D(orr["high"]) + D(orr["low"])) / 2, tick)
+    lines = ["  Stop choice   OR low %s (risk %s a share) vs OR midpoint %s (risk %s a share)."
+             % (money(low), money(e - low), money(mid), money(e - mid))]
+    if plan["stop_rule"] == "or_low":
+        lines.append("                OR low (used): wider, survives normal pullbacks inside the opening range; "
+                     "same rupee risk buys fewer shares, and a 1R/2R target sits further away.")
+    else:
+        lines.append("                OR midpoint (used): tighter, more shares for the same rupee risk, but a normal "
+                     "pullback into the range stops you out more often. --stop or-low widens it.")
+    return lines
+
+
 def build_plan(a, now_utc):
     info = gather(a)
     cfg = read_config(a.config)
@@ -576,7 +596,7 @@ def build_plan(a, now_utc):
         if info["setup"] != "orb":
             raise PlanError("a %s setup has no opening-range stop to default to: give --stop price:X, pct:X or atr:K"
                             % info["setup"])
-        stop_text = "or-mid"
+        stop_text = "or-low"  # India default: the opening-range low (the midpoint is too tight for NSE swings)
     stop_rule, stop_param = parse_stop(stop_text)
     target_rule, target_param = parse_target(a.target or "2R")
     day = None
@@ -650,6 +670,7 @@ def describe(plan):
     out.append("  Risk a share  %s (%s%% of the entry)" % (money(plan["risk_per_share"]), pct))
     out.append("  Reward:risk   %s" % ratio(plan["reward_risk"]))
     out.append("  Flat by       %s IST, win or lose: no overnight hold" % plan["flat_by"])
+    out.extend(stop_tradeoff(plan))
     out.append("Set before the entry. If price hits the stop, you are out; never move it further away.")
     out.append(NOTE)
     return out
@@ -713,7 +734,7 @@ def main(argv=None):
     p.add_argument("--entry-bar", type=int)
     p.add_argument("--interval", choices=["5m", "1m"])
     p.add_argument("--side", default="buy", choices=["buy", "long", "sell", "short"], help="v2: buy only")
-    p.add_argument("--stop", help="or-mid (orb default), or-low, price:X, pct:X, atr:K")
+    p.add_argument("--stop", help="or-low (orb default), or-mid, price:X, pct:X, atr:K")
     p.add_argument("--target", help="2R (default), 1R, 1.5R, price:X")
     p.add_argument("--flat-by", help="HH:MM IST (default: config flat_by, 15:15)")
     p.add_argument("--config", default="trader/config.json")

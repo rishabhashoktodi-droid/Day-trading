@@ -3,6 +3,8 @@ name: trader-timemachine-india
 description: 'Time Machine, India (NSE) edition. Replays a day-trade plan 10,000 times from the stock''s own last 60 days of 5-minute NSE bars and re-runs the same opening-range rule on every past session. IST clock, session modelled 9:15 to 3:15 PM (every day trade flat by 3:15), symbols kept as typed (RELIANCE.NS, M&M.NS). Use for an NSE / .NS plan: "run the time machine", "what are the odds", "backtest this setup".'
 ---
 
+> **Max drawdown on the way.** Besides the four odds, each run prints the worst price each replay touched before it resolved (median / 75th / 95th), how deep that was as a share of the way to the stop, and how many target-first replays first went past 50% and 80% of the way. The real-history line says how many winning trades dipped past halfway first. Use it to judge whether the stop survives the journey, not just the outcome.
+
 > **India edition.** Differences from the US Time Machine: times are IST (UTC+5:30); a full
 > session is 9:15 to 3:15 PM (72 five-minute bars), because every day trade is flat by 3:15 and
 > Yahoo's NSE data often has a blank bar after 3:15; `--until` defaults to 15:15; symbols are kept

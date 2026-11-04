@@ -3,6 +3,8 @@ name: trader-entry-india
 description: 'Entry Timer, India (NSE) edition. Watches an NSE setup bar by bar (Yahoo 1- or 5-minute bars) and says the moment to get in: builds the opening range (9:15 to 9:30 by default) and calls the entry on the first completed bar that CLOSES above the range high or a level you give. No new entries after 3:15 PM IST. Writes trader/entry.json. Long only, never places an order. Use for .NS tickers: "tell me when to get in", "watch ANGELONE", "has it broken out", "check my watchlist".'
 ---
 
+> **Closes only, never wicks.** A breakout counts only when a completed bar CLOSES above the opening-range high. A bar whose wick goes above but closes back inside is reported as `FALSE BREAKOUT` (also `false_breakouts` in the JSON) and is never an entry. Example, 4 Nov 2026: MARICO's 10:45 bar reached ₹894.10 over the ₹893.30 high but closed at ₹893.25.
+
 > **India (NSE) edition: IST clock (UTC+5:30), session 9:15 AM to 3:30 PM, NSE holiday list (2026), every day trade flat by 3:15 PM, prices in rupees (₹), tickers kept as typed (RELIANCE.NS, M&M.NS).** The US text below still describes the method; read its New York / ET times as IST, 9:30 as 9:15, 3:55 or 4:00 PM as 3:15 PM, $ as ₹, NYSE as NSE.
 
 

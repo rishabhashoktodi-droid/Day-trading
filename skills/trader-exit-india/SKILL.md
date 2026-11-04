@@ -3,6 +3,8 @@ name: trader-exit-india
 description: 'Exit Planner, India (NSE) edition. Sets stop and target before you enter: stop at the opening-range midpoint by default (or range low, price, percent, ATR), target 2R by default, both rounded to the NSE tick size (₹0.01 / 0.05 / 0.10 / 0.50 / 1 / 5 by price band) so the broker accepts them. Flat by 3:15 PM IST. Writes trader/plan.json. Use for .NS tickers: "where''s my stop", "set my stop and target", "what''s my R".'
 ---
 
+> **Stop default (India): the opening-range LOW, not the midpoint.** On 4 Nov 2026 ANGELONE dipped to ₹308.25 after a 9:35 breakout, under the ₹308.75 midpoint stop, then recovered to ₹312.40; the OR-low stop (₹307.30) held. The report shows both stops and the trade-off.
+
 > **India (NSE) edition: IST clock (UTC+5:30), session 9:15 AM to 3:30 PM, NSE holiday list (2026), every day trade flat by 3:15 PM, prices in rupees (₹), tickers kept as typed (RELIANCE.NS, M&M.NS).** The US text below still describes the method; read its New York / ET times as IST, 9:30 as 9:15, 3:55 or 4:00 PM as 3:15 PM, $ as ₹, NYSE as NSE. Stops and targets are rounded to the NSE tick for the entry's price band.
 
 
@@ -42,8 +44,8 @@ level`, `--offline FILE` (a saved Yahoo chart JSON for an ATR stop).
 
 | stop | where it goes |
 | --- | --- |
-| `or-mid` | the opening-range midpoint (the default for an opening-range breakout) |
-| `or-low` | the opening-range low: wider, so fewer shares for the same max loss |
+| `or-mid` | the opening-range midpoint (tighter: more shares, stopped out more often) |
+| `or-low` | the opening-range low (**the India default** for an opening-range breakout: survives normal pullbacks inside the range) |
 | `price:X` | your price |
 | `pct:X` | X percent under the entry |
 | `atr:K` | K times the 14-bar ATR under the entry, on the session's bars up to the entry bar. With fewer than 14 bars by then it averages all of them and says so |

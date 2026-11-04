@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Offline checks for the India (NSE) editions of the trader-* skills.
 
-    python3 /home/user/.claude/skills/tests_india.py -v
+    python3 ~/.claude/skills/tests_india.py -v
 """
 import datetime as dt
 import importlib.util
+import json
 import os
 import sys
 import unittest
@@ -164,6 +165,70 @@ class Analyst(unittest.TestCase):
         rows, ttm = FACTS.analyze({"quarterly": q, "annual": {}}, 5)
         self.assertAlmostEqual(rows[-1]["revenue_yoy"], 40.0)
         self.assertAlmostEqual(ttm["revenue"], 110 + 120 + 130 + 140)
+
+
+class Nov4Improvements(unittest.TestCase):
+    """From the 4 Nov 2026 ANGELONE review: OR-low stop default, close-only breakouts, drawdown everywhere."""
+
+    def test_exit_default_stop_is_or_low(self):
+        import types
+        a = types.SimpleNamespace(stop=None)
+        # build_plan picks the default; check the resolver directly and the default text
+        self.assertEqual(EXIT.parse_stop("or-low"), ("or_low", None))
+        src = open(os.path.join(HERE, "trader-exit-india", "exit.py"), encoding="utf-8").read()
+        self.assertIn('stop_text = "or-low"', src)
+        c = EXIT.compute(311.45, "or_low", None, "r", Decimal(1), or_high=310.20, or_low=307.30)
+        self.assertEqual(c["stop"], Decimal("307.30"))
+        lines = EXIT.stop_tradeoff({"entry": 311.45, "stop_rule": "or_low",
+                                    "opening_range": {"high": 310.20, "low": 307.30}})
+        self.assertIn("OR low", lines[0])
+        self.assertIn("308.75", lines[0])      # the midpoint alternative is shown
+
+    def _chart(self, bars):
+        day = dt.date(2026, 11, 4)
+        ts, o, h, l, c, v = [], [], [], [], [], []
+        for k, (hi, lo, cl) in enumerate(bars):
+            t = dt.datetime.combine(day, dt.time(9, 15)) + dt.timedelta(minutes=5 * k)
+            ts.append(int((ENTRY.eastern_to_utc(t) - dt.datetime(1970, 1, 1)).total_seconds()))
+            o.append(cl); h.append(hi); l.append(lo); c.append(cl); v.append(1000)
+        return {"chart": {"result": [{"meta": {"symbol": "TEST.NS"}, "timestamp": ts,
+                "indicators": {"quote": [{"open": o, "high": h, "low": l, "close": c, "volume": v}]}}]}}
+
+    def test_entry_wick_is_false_breakout(self):
+        bars = [(100, 98, 99), (100, 98.5, 99.5), (99.8, 98.8, 99.2),   # range 98-100
+                (101, 99, 99.9),                                       # wick above, closes inside
+                (100.6, 99.5, 100.4)]                                  # closes above: the trigger
+        now = ENTRY.eastern_to_utc(dt.datetime(2026, 11, 4, 9, 45))
+        chart = self._chart(bars)
+        res = ENTRY.evaluate(ENTRY.parse_chart(json.dumps(chart), "TEST.NS"), now)
+        self.assertEqual(res["status"], "triggered")
+        self.assertEqual(res["trigger"]["bar_start"], "09:35")
+        self.assertEqual([f["bar_start"] for f in res["false_breakouts"]], ["09:30"])
+
+    def test_timemachine_drawdown(self):
+        # a flat pool: every bar dips 1% then closes flat
+        pool = [[(1.0, 1.0, 0.99, 1.0)] for _ in range(TM.SESSION_BARS)]
+        mc = TM.simulate(pool, 100.0, 98.0, 102.0, 3, 20, replays=200, seed=19, window=0)
+        dd = mc["drawdown"]["all"]
+        self.assertAlmostEqual(dd["median_worst"], 99.0, places=2)
+        self.assertAlmostEqual(dd["median_depth"], 0.5, places=3)
+        self.assertEqual(mc["p_neither"], 1.0)
+
+    def test_alerts_drawdown(self):
+        rules = [{"id": "x-dd", "symbol": "ANGELONE.NS", "type": "drawdown", "entry": 310.80, "stop": 308.75, "frac": 0.5}]
+        status = {"date": "2026-11-04", "open": True, "opens": "09:15", "closes": "15:30", "now_new_york": "11:00"}
+        now = ALERTS.eastern_to_utc(dt.datetime(2026, 11, 4, 11, 0))
+        q = lambda p: {"ANGELONE.NS": {"price": p}}
+        rings, st = ALERTS.evaluate(rules, q(309.90), status, {}, now)   # halfway is 309.775: not yet
+        self.assertEqual(rings, [])
+        rings, st = ALERTS.evaluate(rules, q(309.70), status, st, now)
+        self.assertEqual(len(rings), 1)
+        self.assertIn("Trade under pressure: approaching stop zone", rings[0]["message"])
+        rings, st = ALERTS.evaluate(rules, q(309.50), status, st, now)   # rings once
+        self.assertEqual(rings, [])
+        plan_rules = ALERTS.rules_from_plan({"symbol": "ANGELONE.NS", "entry": 311.45, "stop": 307.30,
+                                             "target": 315.60, "date": "2026-11-04"})
+        self.assertIn("drawdown", [r["type"] for r in plan_rules])
 
 
 if __name__ == "__main__":

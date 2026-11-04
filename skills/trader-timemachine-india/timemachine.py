@@ -341,6 +341,29 @@ def pct(a, q):
     return a[min(len(a) - 1, int(q * len(a)))]
 
 
+def drawdown_summary(entry, stop, risk, long, outcomes, worsts):
+    """How deep each replay dipped toward the stop before it resolved. depth 0 = never under the entry,
+    1 = reached the stop. Reported for all replays and for the ones that hit the target first."""
+    def depth(w):
+        return max(0.0, ((entry - w) if long else (w - entry)) / risk)
+
+    def block(ws):
+        if not ws:
+            return None
+        ds = sorted(depth(w) for w in ws)
+        wp = sorted(ws, reverse=long)  # from the shallowest dip to the deepest
+        return {"n": len(ws),
+                "median_worst": round(pct(wp, 0.5), 2), "p75_worst": round(pct(wp, 0.75), 2),
+                "p95_worst": round(pct(wp, 0.95), 2),
+                "median_depth": round(pct(ds, 0.5), 3), "p75_depth": round(pct(ds, 0.75), 3),
+                "p95_depth": round(pct(ds, 0.95), 3),
+                "share_past_half": round(sum(1 for d in ds if d >= 0.5) / len(ds), 4),
+                "share_past_80": round(sum(1 for d in ds if d >= 0.8) / len(ds), 4)}
+    return {"all": block(worsts),
+            "target_first": block([w for o, w in zip(outcomes, worsts) if o == "target"]),
+            "neither": block([w for o, w in zip(outcomes, worsts) if o == "close"])}
+
+
 def simulate(pool, entry, stop, target, k, last, replays=10000, seed=19, window=2, side="buy"):
     """Monte Carlo replays of bars k+1..last. Same draws and order as the reel's sim.py."""
     long = side == "buy"
@@ -352,16 +375,18 @@ def simulate(pool, entry, stop, target, k, last, replays=10000, seed=19, window=
 
     rng = random.Random(seed)
     choice = rng.choice
-    outcomes, closes, paths = [], [], []
+    outcomes, closes, paths, worsts = [], [], [], []
     for n in range(replays):
         p = entry
         outcome = None
         keep = n < SAMPLE_PATHS
         path = [entry]
+        worst = entry  # the worst price before the outcome (max adverse excursion); no extra draws
         for i in range(k + 1, last + 1):
             o, h, l, c = choice(pool[slot(rng, i)])
             hi, lo, cl = p * h, p * l, p * c
             if outcome is None:
+                worst = min(worst, lo) if long else max(worst, hi)
                 if long:
                     if lo <= stop:
                         outcome = "stop"        # both inside one bar: count the loss (conservative)
@@ -377,6 +402,7 @@ def simulate(pool, entry, stop, target, k, last, replays=10000, seed=19, window=
                 path.append(round(p, 2))
         outcomes.append(outcome or "close")
         closes.append(p)
+        worsts.append(max(worst, stop) if long else min(worst, stop))
         if keep:
             paths.append(path)
     cnt = {x: outcomes.count(x) for x in ("target", "stop", "close")}
@@ -408,7 +434,9 @@ def simulate(pool, entry, stop, target, k, last, replays=10000, seed=19, window=
         b = int((c - lo_) / W) if W > 0 else 0
         if 0 <= b < HIST_BINS:
             bins[b] += 1
+    drawdown = drawdown_summary(entry, stop, risk, long, outcomes, worsts)
     return {
+        "drawdown": drawdown,
         "replays": replays, "seed": seed, "window": window, "bars_left": last - k,
         "p_target": round(cnt["target"] / replays, 4), "p_stop": round(cnt["stop"] / replays, 4),
         "p_neither": round(cnt["close"] / replays, 4), "p_green": round(green / replays, 4),
@@ -462,7 +490,9 @@ def history_replay(sessions, rule, last, side="buy"):
             continue
         t = round(e + rule["target_r"] * risk, 2) if long else round(e - rule["target_r"] * risk, 2)
         oc = None
+        worst = e
         for b in D[kk + 1:last + 1]:
+            worst = min(worst, b["l"]) if long else max(worst, b["h"])
             if (b["l"] <= s) if long else (b["h"] >= s):
                 oc = "stop"
                 break
@@ -472,7 +502,9 @@ def history_replay(sessions, rule, last, side="buy"):
         cl = D[last]["c"]
         R = ((t - e) if long else (e - t)) / risk if oc == "target" else -1.0 if oc == "stop" else \
             ((cl - e) if long else (e - cl)) / risk
-        trades.append({"date": d, "time": clock12(OPEN_MIN + 5 * (kk + 1)), "entry": e, "stop": s, "target": t,
+        worst = max(worst, s) if long else min(worst, s)
+        trades.append({"worst": round(worst, 2), "depth": round(max(0.0, ((e - worst) if long else (worst - e)) / risk), 3),
+                       "date": d, "time": clock12(OPEN_MIN + 5 * (kk + 1)), "entry": e, "stop": s, "target": t,
                        "outcome": oc or "close", "R": round(R, 2)})
     return {
         "sessions": len(sessions), "triggered": len(trades),
@@ -482,6 +514,12 @@ def history_replay(sessions, rule, last, side="buy"):
         "green": sum(1 for x in trades if x["R"] > 0),
         "avg_R": round(statistics.mean(x["R"] for x in trades), 3) if trades else None,
         "rule": rule, "trades": trades,
+        "drawdown": {
+            "target_trades": len([x for x in trades if x["outcome"] == "target"]),
+            "target_past_half": sum(1 for x in trades if x["outcome"] == "target" and x["depth"] >= 0.5),
+            "median_depth": round(statistics.median([x["depth"] for x in trades]), 3) if trades else None,
+            "deepest_target": max([x["depth"] for x in trades if x["outcome"] == "target"], default=None),
+        },
     }
 
 
@@ -603,9 +641,9 @@ def resolve_rule(plan, entry_day):
         rule["stop_rule"] = "pct"
         if all(i in entry_day for i in range(n)):
             oh, ol = opening_range(entry_day, n)
-            if abs(cents_away((oh + ol) / 2, long) - plan["stop"]) < 0.005:
+            if abs(cents_away((oh + ol) / 2, long) - plan["stop"]) < 0.105:  # within one NSE tick (exit rounds to the tick)
                 rule["stop_rule"] = "or_mid"
-            elif abs(cents_away(ol if long else oh, long) - plan["stop"]) < 0.005:
+            elif abs(cents_away(ol if long else oh, long) - plan["stop"]) < 0.105:  # within one NSE tick (exit rounds to the tick)
                 rule["stop_rule"] = far
     elif rule["stop_rule"] in ("or_low", "or_high") and rule["stop_rule"] != far:
         rule["stop_rule"] = "pct"
@@ -754,6 +792,34 @@ def pc(x):
     return "%.1f %%" % (100.0 * x)
 
 
+def drawdown_lines(p, m, h):
+    """The max-drawdown block: how close to the stop trades came on the way, not just how they ended."""
+    dd = m.get("drawdown") or {}
+    out = []
+    a, t = dd.get("all"), dd.get("target_first")
+    if not a:
+        return out
+    side_word = "low" if p["side"] == "buy" else "high"
+    out.append("  Max drawdown on the way (the worst %s before the outcome; 0%% = never past the entry, "
+               "100%% = reached the stop):" % side_word)
+    out.append("    all replays     median worst %.2f (%.0f%% of the way to the stop), 75th %.2f, 95th %.2f"
+               % (a["median_worst"], 100 * a["median_depth"], a["p75_worst"], a["p95_worst"]))
+    if t:
+        out.append("    target first    median worst %.2f (%.0f%% of the way); %s of these went past halfway to the "
+                   "stop and %s past 80%% before reaching the target"
+                   % (t["median_worst"], 100 * t["median_depth"], pc(t["share_past_half"]), pc(t["share_past_80"])))
+    hd = h.get("drawdown") or {}
+    if hd.get("target_trades"):
+        out.append("    history         %d of the %d real target trades dipped past halfway to the stop first "
+                   "(deepest %.0f%%); median dip over all real trades %.0f%% of the way."
+                   % (hd["target_past_half"], hd["target_trades"], 100 * (hd["deepest_target"] or 0),
+                      100 * (hd["median_depth"] or 0)))
+    out.append("    A stop that winners often come close to is a tight stop: widen it (or-low) or accept being "
+               "shaken out.")
+    out.append("")
+    return out
+
+
 def report(doc):
     p, m, h = doc["plan"], doc["mc"], doc["history"]
     long = p["side"] == "buy"
@@ -781,6 +847,7 @@ def report(doc):
         % (m["avg_R"], p["risk_per_share"], ("+%g" % m["r_at_target"]), ),
         "",
     ]
+    lines += drawdown_lines(p, m, h)
     if h.get("rule"):
         ru = h["rule"]
         stop_words = {"or_mid": "opening-range midpoint", "or_low": "opening-range low",
